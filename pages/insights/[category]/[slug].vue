@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 const route = useRoute()
 const config = useRuntimeConfig().public
 
 type InsightCategory = 'company' | 'industry' | 'knowledge'
-const currentCategory = (route.query.category as InsightCategory) || 'knowledge'
+const categoryMap: Record<InsightCategory, string> = {
+  company: '公司动态',
+  industry: '行业新闻',
+  knowledge: '知识百科'
+}
+
+// 当前分类从路径参数
+const currentCategory = computed<InsightCategory>(() => {
+  const c = route.params.category as InsightCategory
+  return Object.keys(categoryMap).includes(c) ? c : 'knowledge'
+})
 
 // 获取当前文章
 const { data: article } = await useAsyncData(
@@ -19,12 +30,12 @@ if (!article.value) {
 }
 
 // 获取上下篇文章
-const surroundPromise = queryContent('insight')
-  .where({ _dir: currentCategory })
+const [prev, next] = await queryContent('insight')
+  .where({ _dir: currentCategory.value })
   .sort({ date: -1 })
   .findSurround(article.value._path!)
 
-const relatedPromise = queryContent('insight')
+const related = await queryContent('insight')
   .where({
     $and: [
       { _path: { $ne: article.value._path } },
@@ -39,14 +50,12 @@ const relatedPromise = queryContent('insight')
   .limit(4)
   .find()
 
-const [surround, related] = await Promise.all([surroundPromise, relatedPromise])
-const [prev, next] = surround
-
 // 面包屑
 const breadcrumbs = computed(() => [
   { label: '首页', to: '/' },
-  { label: '资讯中心', to: `/insights?category=${currentCategory}&page=${route.query.page || 1}` },
-  { label: article.value.title }
+  { label: '资讯中心', to: '/insights' },
+  { label: categoryMap[currentCategory.value], to: `/insights/${currentCategory.value}` },
+  ...(article.value ? [{ label: article.value.title }] : [])
 ])
 
 // JSON-LD
@@ -55,18 +64,13 @@ const jsonLd = {
   '@type': 'Article',
   headline: article.value.title,
   description: article.value.description,
-  image: article.value.image,
+  image: `${config.siteUrl}${article.value.image}`,
   datePublished: article.value.date,
   author: { '@type': 'Organization', name: config.companyName },
-  mainEntityOfPage: `${config.siteUrl}${article.value._path}`
+  mainEntityOfPage: `${config.siteUrl}/insights/${currentCategory.value}/${article.value.slug}`
 }
-
-// useSeoMeta({
-//   title: article.value.title,
-//   description: article.value.description,
-//   ogImage: article.value.image
-// })
 </script>
+
 
 <template>
   <SeoHead
@@ -87,7 +91,7 @@ const jsonLd = {
         <h1>{{ article.title }}</h1>
         <p>{{ article.description }}</p>
 
-        <ContentRenderer :value="article">
+        <ContentRenderer :value="article" :hydrate="false">
           <template #empty>
             <p>文章内容加载中...</p>
           </template>
@@ -96,11 +100,11 @@ const jsonLd = {
         <div class="prev-next" v-if="prev || next">
           <div v-if="prev">
             <span>上一篇</span>
-            <NuxtLink :to="prev.slug">{{ prev.title }}</NuxtLink>
+            <NuxtLink :to="`/insights/${currentCategory.value}/${prev.slug}`">{{ prev.title }}</NuxtLink>
           </div>
           <div v-if="next">
             <span>下一篇</span>
-            <NuxtLink :to="next.slug">{{ next.title }}</NuxtLink>
+            <NuxtLink :to="`/insights/${currentCategory.value}/${next.slug}`">{{ next.title }}</NuxtLink>
           </div>
         </div>
       </div>
@@ -119,6 +123,7 @@ const jsonLd = {
   grid-template-columns: 3fr 1fr;
   gap: 2rem;
   margin-top: 2rem;
+  overflow-x: hidden;
 }
 
 .prev-next {

@@ -1,32 +1,32 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-const showWechat = ref(false)
+import { isMobileMenuOpen } from '~/composables/useGlobalMenu'
+import { useRuntimeConfig } from '#app'
+
 const config = useRuntimeConfig().public
+const showWechat = ref(false)
 </script>
 
 <template>
-  <div class="floating-contact">
+  <!-- 当移动端菜单打开时隐藏悬浮按钮 -->
+  <div v-show="!isMobileMenuOpen" class="floating-contact">
     <!-- 电话 -->
     <div class="btn-wrapper">
-      <a :href="`tel:${config.phone}`" class="btn" aria-label="联系电话">
-        📞
-      </a>
+      <a :href="`tel:${config.phone}`" class="btn" aria-label="联系电话">📞</a>
       <div class="tooltip">{{ config.phone }}</div>
     </div>
 
     <!-- 邮箱 -->
     <div class="btn-wrapper">
-      <a :href="`mailto:${config.email}`" class="btn" aria-label="邮箱">
-        ✉️
-      </a>
+      <a :href="`mailto:${config.email}`" class="btn" aria-label="邮箱">✉️</a>
       <div class="tooltip">{{ config.email }}</div>
     </div>
 
     <!-- 微信 -->
     <div class="btn-wrapper wechat" @mouseenter="showWechat = true" @mouseleave="showWechat = false">
-      <div class="btn">💬</div>
+      <NuxtImg src="/images/wechat.png" alt="微信" class="wechat-icon" width="28" height="28" object-fit="contain" />
       <div v-if="showWechat" class="wechat-qrcode">
-        <img :src="config.wechatQr" alt="微信二维码" />
+        <NuxtImg :src="config.wechatQr" alt="微信二维码" width="120" height="120" />
         <p>微信扫码咨询</p>
       </div>
     </div>
@@ -39,7 +39,7 @@ const config = useRuntimeConfig().public
   right: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 10000; /* 必须高于移动端菜单 */
+  z-index: 11000; /* 确保高于移动端菜单 */
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -53,7 +53,7 @@ const config = useRuntimeConfig().public
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0ea5e9, #22c55e);
+  background: #FFF;
   color: #fff;
   font-size: 20px;
   display: flex;
@@ -81,6 +81,26 @@ const config = useRuntimeConfig().public
 .btn-wrapper:hover .tooltip {
   opacity: 1;
 }
+
+.btn-wrapper.wechat {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #FFF;
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+}
+
+.btn-wrapper.wechat .wechat-icon {
+  width: 60%;      /* 占按钮 60% */
+  height: 60%;
+}
+
 
 .wechat-qrcode {
   position: absolute;

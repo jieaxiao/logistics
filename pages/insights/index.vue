@@ -1,332 +1,160 @@
 <script setup lang="ts">
-type InsightCategory = 'company' | 'industry' | 'knowledge'
-
-const categories: InsightCategory[] = [
-  'company',
-  'industry',
-  'knowledge'
+// 定义分类元数据
+const categories = [
+  { key: 'company', label: '公司动态' },
+  { key: 'industry', label: '行业新闻' },
+  { key: 'knowledge', label: '知识百科' }
 ]
 
-const categoryMap: Record<InsightCategory, string> = {
-  company: '公司动态',
-  industry: '行业新闻',
-  knowledge: '知识百科'
-}
-
+// 面包屑配置
 const breadcrumbs = [
   { label: '首页', to: '/' },
   { label: '资讯中心' }
 ]
 
-const route = useRoute()
-const router = useRouter()
+const runtimeConfig = useRuntimeConfig()
 
-/** 当前分类（从 URL 读） */
-const current = computed<InsightCategory>(() => {
-  const c = route.query.category as InsightCategory
-  return categories.includes(c) ? c : 'knowledge'
-})
-
-/** 当前页 */
-const currentPage = computed(() => {
-  const p = Number(route.query.page)
-  return p > 0 ? p : 1
-})
-
-
-/** 每个分类一个 SSR 数据源 */
-const dataMap = {} as Record<InsightCategory, Ref<any[]>>
-
-for (const c of categories) {
-  const { data } = await useAsyncData(
-    `insight-${c}`,
-    () =>
+// 一次性获取所有分类的前6条数据
+const { data: sectionData, pending } = await useAsyncData('insights-home', async () => {
+  const results = await Promise.all(
+    categories.map(cat => 
       queryContent('insight')
-        .where({ _dir: c })
+        .where({ _dir: cat.key })
         .sort({ date: -1 })
+        .limit(6)
         .only(['title', 'description', 'date', 'slug', 'image'])
         .find()
+    )
   )
-  dataMap[c] = data as Ref<any[]>
-}
-
-const list = computed(() => dataMap[current.value]?.value ?? [])
-
-const pageSize = 8
-
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return list.value.slice(start, start + pageSize)
+  
+  // 返回结构化数据：{ company: [...], industry: [...], ... }
+  return Object.fromEntries(categories.map((cat, i) => [cat.key, results[i]]))
 })
 
-/** 切换分类 */
-function changeCategory(c: InsightCategory) {
-  router.push({
-    query: { category: c, page: 1 }
-  })
-}
-
-/** SEO */
+// SEO设置
 useSeoMeta({
-  title: () =>
-    currentPage.value > 1
-      ? `${categoryMap[current.value]} - 第 ${currentPage.value} 页 | 飞渡速达`
-      : `${categoryMap[current.value]} | 飞渡速达`,
-  description: () =>
-    currentPage.value > 1
-      ? `飞渡速达${categoryMap[current.value]}第 ${currentPage.value} 页，提供专业跨境物流资讯与实操经验`
-      : `飞渡速达${categoryMap[current.value]}，提供专业跨境物流资讯与实操经验`
+  title: '资讯中心 | 飞渡速达',
+  description: '飞渡速达跨境物流资讯中心，涵盖公司动态、行业新闻与实操知识'
 })
 
-
-
-/** SEO prev / next */
-useHead(() => {
-  const totalPages = Math.ceil(list.value.length / pageSize)
-  const links: any[] = []
-
-  // prev
-  if (currentPage.value > 1) {
-    links.push({
-      rel: 'prev',
-      href:
-        currentPage.value - 1 === 1
-          ? `/insights?category=${current.value}`
-          : `/insights?category=${current.value}&page=${currentPage.value - 1}`
-    })
-  }
-
-  // next
-  if (currentPage.value < totalPages) {
-    links.push({
-      rel: 'next',
-      href: `/insights?category=${current.value}&page=${currentPage.value + 1}`
-    })
-  }
-
-  // canonical
-  links.push({
-    rel: 'canonical',
-    href: currentPage.value === 1
-      ? `/insights?category=${current.value}`
-      : `/insights?category=${current.value}&page=${currentPage.value}`
-  })
-
-  return { link: links }
+// 规范链接指向资讯主页
+useHead({
+  link: [{ rel: 'canonical', href: `${runtimeConfig.public.siteUrl}/insights` }]
 })
-
 </script>
 
 <template>
-  <section class="insights container">
+  <div class="insights-home container">
     <Breadcrumbs :items="breadcrumbs" />
-    <header class="page-header">
-      <p>跨境物流行业动态 · 公司公告 · 实用知识</p>
-    </header>
 
-    <nav class="category-tabs">
-      <button
-        v-for="c in categories"
-        :key="c"
-        :class="['tab', { active: current === c }]"
-        @click="changeCategory(c)"
+    <div class="category-nav">
+      <NuxtLink 
+        v-for="cat in categories" 
+        :key="cat.key"
+        :to="`/insights/${cat.key}`" 
+        class="nav-pill"
       >
-        {{ categoryMap[c] }}
-      </button>
-    </nav>
-
-    <div class="grid">
-      <article
-        v-for="item in pagedList"
-        :key="item.slug"
-        class="card"
-      >
-        <NuxtLink 
-          :to="{
-            path: `/insights/${item.slug}`,
-            query: {
-              category: current,
-              page: currentPage
-            }
-          }"
-          class="card-link"
-        >
-          <img v-if="item.image" :src="item.image" :alt="item.title" />
-
-          <div class="card-body">
-            <h2 class="card-title">{{ item.title }}</h2>
-
-            <p class="card-desc">
-              {{ item.description }}
-            </p>
-
-            <div class="card-footer">
-              <time class="card-date">
-                {{ item.date }}
-              </time>
-              <span class="read-more">阅读全文 →</span>
-            </div>
-          </div>
-        </NuxtLink>
-      </article>
+        {{ cat.label }}
+      </NuxtLink>
     </div>
 
-    <Pagination
-      :total="list.length"
-      :page-size="pageSize"
-    />
-  </section>
+    <div v-if="!pending" class="sections-wrapper">
+      <section v-for="cat in categories" :key="cat.key" class="category-section">
+        <div class="section-header">
+          <h2 class="section-title">{{ cat.label }}</h2>
+          <div class="title-underline"></div>
+        </div>
+
+        <div class="article-list">
+          <div v-for="article in sectionData?.[cat.key]" :key="article.slug" class="article-card">
+            <div class="article-image">
+              <NuxtImg
+                :src="article.image"
+                :alt="article.title"
+                width="600"
+                height="300"
+                object-fit="cover"
+                class="article-image"
+              />
+
+            </div>
+            <div class="article-content">
+              <h3 class="title">{{ article.title }}</h3>
+              <p class="description">{{ article.description }}</p>
+              <div class="article-footer">
+                <span class="category-tag">{{ cat.label }}</span>
+                <span class="date">{{ article.date?.split('T')[0] }}</span>
+                <NuxtLink :to="`/insights/${article.slug}`" class="detail-link">详情 —</NuxtLink>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="more-container">
+          <NuxtLink :to="`/insights/${cat.key}`" class="view-more-btn">
+            查看更多 {{ cat.label }}
+          </NuxtLink>
+        </div>
+      </section>
+    </div>
+  </div>
 </template>
 
-
 <style scoped>
-.page-header {
-  margin-bottom: 1.5rem;
-}
-.page-header h1 {
-  font-size: 1.8rem;
-}
-.page-header p {
-  color: #64748b;
-  margin-top: 0.3rem;
-}
+.insights-home { padding: 2rem 0; }
 
-.category-tabs {
-  display: flex;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.tab {
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tab.active {
-  background: #0ea5e9;
-  color: #fff;
-  border-color: #0ea5e9;
-}
-
-.grid {
-  display: grid;
-  gap: 1.2rem;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-
-.card {
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #fff;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.card:hover {
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-  transform: translateY(-2px);
-}
-
-/* 图片统一高度 */
-.card img {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-}
-
-/* 内容区域：控制高度关键 */
-.card-body {
-  display: flex;
-  flex-direction: column;
-  padding: 0.8rem;
-  min-height: 180px;
-}
-
-/* 标题最多 2 行 */
-.card-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.4;
-  margin-bottom: 0.4rem;
-
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* 描述最多 3 行 */
-.card-desc {
-  font-size: 0.9rem;
-  color: #475569;
-  line-height: 1.5;
-
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* 底部固定在下方 */
-.card-footer {
-  margin-top: auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 0.6rem;
-}
-
-/* 日期样式 */
-.card-date {
-  font-size: 0.75rem;
-  color: #64748b;
+/* 顶部分类药丸样式 */
+.category-nav { display: flex; gap: 1.5rem; margin: 2rem 0; }
+.nav-pill {
+  padding: 0.6rem 1.8rem;
+  border-radius: 30px;
   background: #f1f5f9;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-}
-
-/* 阅读更多 */
-.read-more {
-  margin-top: 20px;
-  font-size: 0.90rem;
-  color: #0ea5e9;
-  font-weight: 600;
-}
-
-.card-link {
-  display: block;
-  height: 100%;
-}
-
-
-.card h2 {
-  font-size: 1rem;
-  margin: 0.6rem;
-}
-
-.card p {
-  font-size: 0.9rem;
   color: #475569;
-  margin: 0 0.6rem 0.6rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+.nav-pill:hover {
+  background: #e0f2fe;
+  color: #0ea5e9;
 }
 
-.card time {
-  font-size: 0.8rem;
-  color: #94a3b8;
-  margin: 0 0.6rem 0.8rem;
-  display: block;
-}
+/* 板块标题样式 */
+.category-section { margin-bottom: 4rem; }
+.section-header { margin-bottom: 2rem; }
+.section-title { font-size: 1.6rem; font-weight: 700; color: #1e293b; }
+.title-underline { width: 40px; height: 4px; background: #fbbf24; margin-top: 0.5rem; }
 
-/* 移动端 */
-@media (max-width: 640px) {
-  .page-header h1 {
-    font-size: 1.4rem;
-  }
+/* 文章卡片 (还原截图布局) */
+.article-card {
+  display: flex; gap: 1.5rem; padding: 1.2rem;
+  background: #fff; border: 1px solid #f1f5f9; border-radius: 12px;
+  margin-bottom: 1rem; transition: all 0.2s;
+}
+.article-card:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+
+.article-image { width: 220px; height: 140px; flex-shrink: 0; }
+.article-image img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+
+.article-content { display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1; }
+.title { font-size: 1.15rem; font-weight: 700; color: #1e293b; }
+.description { color: #64748b; font-size: 0.9rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.article-footer { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; }
+.category-tag { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; }
+.date { color: #94a3b8; }
+.detail-link { margin-left: auto; color: #0ea5e9; font-weight: 600; }
+
+/* 查看更多按钮 */
+.more-container { text-align: center; margin-top: 2rem; }
+.view-more-btn {
+  display: inline-block; padding: 0.8rem 2.5rem;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  color: #64748b; font-weight: 500; transition: all 0.3s;
+}
+.view-more-btn:hover { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+
+@media (max-width: 768px) {
+  .article-card { flex-direction: column; }
+  .article-image { width: 100%; height: 180px; }
 }
 </style>

@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-04-03', // Updated to current date
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NODE_ENV === 'development' }, 
   ssr: true,
   modules: [
     '@nuxt/content',
@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     '@nuxtjs/robots'
   ],
   nitro: {
+    compressPublicAssets: true,       // 压缩静态资源开启 Nitro 压缩
     prerender: {
       crawlLinks: true,
 
@@ -66,7 +67,8 @@ export default defineNuxtConfig({
   // },
 
   robots: {
-    groups: [ // Fixed: using groups instead of rules
+    production: true,
+    rules: [
       {
         userAgent: '*',
         allow: '/',
@@ -85,7 +87,7 @@ export default defineNuxtConfig({
       email: 'contact@globalcross.com',
       address: 'Shenzhen, China',
       wechat: 'GlobalCrossWX',
-      wechatQr: '/images/210235_61_17.jpg'
+      wechatQr: '/images/210235_61_17.jpg'  
     }
   },
   css: ['@/assets/css/main.scss', 'katex/dist/katex.min.css'],
@@ -95,10 +97,11 @@ export default defineNuxtConfig({
       link: [{ rel: 'canonical', href: process.env.SITE_URL || 'https://www.example-logistics.com' }]
     }
   },
-  image: {
-    format: ['webp', 'avif', 'jpeg'],
+  image: {    
+    format: ['webp', 'avif'],
     densities: [1, 2],
-    quality: 85,
+    quality: 65,
+    dir: 'public',
     screens: {
       mobile: 375,
       tablet: 768,
@@ -112,11 +115,13 @@ export default defineNuxtConfig({
     markdown: {
       remarkPlugins: ['remark-math'],
       rehypePlugins: ['rehype-katex']
+    },
+    cache: true,            //缓存解析后的 Markdown 内容
+    experimental: {
+      clientDB: true       // ⚡ 浏览器 IndexedDB 缓存 Markdown 数据
     }
   },
-  experimental: {
-    payloadExtraction: true
-  },
+  components: true,
   
   // Optional: Add to fix SCSS deprecation
   vite: {

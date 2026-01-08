@@ -61,7 +61,7 @@ const jsonLd = {
         <p class="meta">{{ doc?.category }} · {{ doc?.date }}</p>
         <h1>{{ doc?.title }}</h1>
         <p>{{ doc?.description }}</p>
-        <ContentRenderer :value="doc">
+        <ContentRenderer :value="doc" :hydrate="false">
           <template #empty>
             <p>文章内容加载中...</p>
           </template>

@@ -1,19 +1,30 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { isMobileMenuOpen, toggleMobileMenu, closeMobileMenu } from '~/composables/useGlobalMenu'
+import { useRuntimeConfig } from '#app'
+import { navigateTo } from '#app'
+
 const config = useRuntimeConfig().public
-type NavItem = { to: string; label: string; children?: { to: string; label: string }[] }
+
+type NavItem = {
+  to: string
+  label: string
+  exact?: boolean
+  children?: { to: string; label: string }[]
+}
 
 const navLinks: NavItem[] = [
   { to: '/', label: '首页' },
   { to: '/cases', label: '客户案例' },
   { to: '/services', label: '物流服务' },
   {
-    to: '/insights?category=knowledge',
+    to: '/insights',
     label: '资讯中心',
     exact: false,
     children: [
-      { to: '/insights?category=company', label: '公司动态' },
-      { to: '/insights?category=industry', label: '行业新闻' },
-      { to: '/insights?category=knowledge', label: '知识百科' }
+      { to: '/insights/company', label: '公司动态' },
+      { to: '/insights/news', label: '行业新闻' },
+      { to: '/insights/knowledge', label: '知识百科' }
     ]
   },
   { 
@@ -27,40 +38,31 @@ const navLinks: NavItem[] = [
   { to: '/tools', label: '热门工具' }
 ]
 
-const isMobileMenuOpen = ref(false)
-
-const onDropdownClick = async (item: NavItem, childTo: string) => {
-  if (item.label === '资讯中心') {
-    await navigateTo(childTo)
-    return
-  }
+const onDropdownClick = async (_item: NavItem, childTo: string) => {
   await navigateTo(childTo)
 }
 
 // 点击菜单项时关闭移动端菜单
 const handleNavClick = () => {
-  if (window.innerWidth < 900) {
-    isMobileMenuOpen.value = false
-  }
+  if (window.innerWidth < 900) closeMobileMenu()
 }
-
 
 // 监听窗口变化，如果窗口变大则关闭移动菜单
 onMounted(() => {
   const handleResize = () => {
-    if (window.innerWidth >= 900) {
-      isMobileMenuOpen.value = false
-    }
+    if (window.innerWidth >= 900) closeMobileMenu()
   }
   window.addEventListener('resize', handleResize)
-  return () => window.removeEventListener('resize', handleResize)
+  onUnmounted(() => {
+    window.removeEventListener('resize', handleResize)
+  })
 })
 </script>
 
 <template>
   <header class="site-header">
     <div class="container header-inner">
-      <!-- Logo/Brand -->
+      <!-- Logo -->
       <NuxtLink to="/" class="brand">
         <div>
           <div class="brand-name">{{ config.companyName }}</div>
@@ -97,7 +99,7 @@ onMounted(() => {
       <!-- Mobile Menu Toggle -->
       <button 
         class="mobile-menu-toggle" 
-        @click="isMobileMenuOpen = !isMobileMenuOpen"
+        @click="toggleMobileMenu"
         :aria-expanded="isMobileMenuOpen"
         aria-label="菜单"
       >
@@ -118,7 +120,7 @@ onMounted(() => {
     <div 
       class="mobile-nav-overlay" 
       :class="{ 'open': isMobileMenuOpen }"
-      @click="isMobileMenuOpen = false"
+      @click="closeMobileMenu"
     >
       <nav 
         class="mobile-nav" 
@@ -132,7 +134,7 @@ onMounted(() => {
           </div>
           <button 
             class="mobile-close-btn"
-            @click="isMobileMenuOpen = false"
+            @click="closeMobileMenu"
             aria-label="关闭菜单"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -146,10 +148,7 @@ onMounted(() => {
             <div v-if="'children' in item" class="mobile-nav-item mobile-dropdown">
               <button 
                 class="mobile-nav-link mobile-dropdown-toggle"
-                @click="(e) => {
-                  const parent = e.currentTarget.parentElement
-                  parent.classList.toggle('active')
-                }"
+                @click="(e) => { e.currentTarget.parentElement.classList.toggle('active') }"
               >
                 <span>{{ item.label }}</span>
                 <span class="mobile-chev">›</span>
@@ -204,7 +203,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  padding: 1rem 1rem 0.1rem;
   height: 70px;
 }
 
@@ -397,17 +396,12 @@ onMounted(() => {
 
 /* Mobile Navigation Overlay */
 .mobile-nav-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 99;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-}
+  position: static;
+  transform: none;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 1rem;}
 
 .mobile-nav-overlay.open {
   opacity: 1;

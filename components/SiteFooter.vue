@@ -8,12 +8,12 @@ const navLinks: NavItem[] = [
   { to: '/cases', label: '客户案例' },
   { to: '/services', label: '物流服务' },
   {
-    to: '/insights?category=knowledge',
+    to: '/insights', // 资讯中心总入口
     label: '资讯中心',
     children: [
-      { to: '/insights?category=company', label: '公司动态' },
-      { to: '/insights?category=industry', label: '行业新闻' },
-      { to: '/insights?category=knowledge', label: '知识百科' }
+      { to: '/insights/company', label: '公司动态' },
+      { to: '/insights/industry', label: '行业新闻' },
+      { to: '/insights/knowledge', label: '知识百科' }
     ]
   },
   { to: '/about', label: '关于我们'},
