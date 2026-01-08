@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { isMobileMenuOpen, toggleMobileMenu, closeMobileMenu } from '~/composables/useGlobalMenu'
-import { useRuntimeConfig } from '#app'
-import { navigateTo } from '#app'
 
 const config = useRuntimeConfig().public
 
@@ -23,7 +21,7 @@ const navLinks: NavItem[] = [
     exact: false,
     children: [
       { to: '/insights/company', label: '公司动态' },
-      { to: '/insights/news', label: '行业新闻' },
+      { to: '/insights/industry', label: '行业新闻' },
       { to: '/insights/knowledge', label: '知识百科' }
     ]
   },
@@ -179,7 +177,7 @@ onMounted(() => {
         <div class="mobile-cta">
           <a href="/contact" class="mobile-cta-btn" @click="handleNavClick">快速咨询</a>
           <div class="mobile-contact-info">
-            <p>客服热线: {{ config.phone || '400-xxx-xxxx' }}</p>
+            <p>客服热线: +86 {{ config.phone }}</p>
             <p>工作时间: 周一至周五 9:00-18:00</p>
           </div>
         </div>
@@ -412,21 +410,23 @@ onMounted(() => {
 .mobile-nav {
   position: fixed;
   top: 0;
-  right: -100%;
+  left: -100%;           /* 从左侧隐藏 */
   width: 85%;
   max-width: 400px;
   height: 100vh;
   background: white;
-  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.1);
-  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 5px 0 25px rgba(0, 0, 0, 0.1);  /* 阴影改到右边 */
+  transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 用 left 动画 */
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  z-index: 1001;
 }
 
 .mobile-nav.open {
-  right: 0;
+  left: 0;  /* 打开时移动到左边 0 */
 }
+
 
 .mobile-nav-header {
   display: flex;

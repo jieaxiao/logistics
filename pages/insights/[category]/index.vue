@@ -1,5 +1,7 @@
 <script setup lang="ts">
-type InsightCategory = 'company' | 'industry' | 'knowledge'
+import type { InsightDir } from '~/composables/useContentStore'
+
+type InsightCategory = InsightDir
 
 const categories: InsightCategory[] = ['company', 'industry', 'knowledge']
 
@@ -8,6 +10,7 @@ const categoryMap: Record<InsightCategory, string> = {
   industry: '行业新闻',
   knowledge: '知识百科'
 }
+
 const categoryDescription: Record<InsightCategory, string> = {
   company: '公司公告 · 最新动态 · 企业资讯',
   industry: '行业新闻 · 趋势分析 · 跨境物流资讯',
@@ -29,22 +32,29 @@ const currentPage = computed(() => {
   return p > 0 ? p : 1
 })
 
-/** 拉取该分类文章 */
+/** 分页大小 */
+const pageSize = 8
+
+/** ContentStore */
+const contentStore = useContentStore()
+
+/** 拉取该分类文章列表（全局缓存） */
 const { data: list } = await useAsyncData(
   `insights-${current.value}`,
-  () =>
-    queryContent('insight')
-      .where({ _dir: current.value })
-      .sort({ date: -1 })
-      .only(['title', 'description', 'date', 'slug', 'image'])
-      .find()
+  () => contentStore.fetchList({
+    section: 'insights',
+    subDir: current.value,
+    onlyFields: ['title', 'description', 'date', 'slug', 'image']
+  })
 )
 
-const pageSize = 8
+/** 计算分页列表 */
 const pagedList = computed(() => {
   const start = (currentPage.value - 1) * pageSize
   return list.value?.slice(start, start + pageSize) || []
 })
+
+/** 总页数 */
 const totalPages = computed(() => Math.ceil((list.value?.length || 0) / pageSize))
 
 /** 切换分类 */
@@ -96,6 +106,7 @@ useHead(() => {
 })
 </script>
 
+
 <template>
   <section class="insights container">
     <Breadcrumbs :items="breadcrumbs" />
@@ -128,8 +139,8 @@ useHead(() => {
           <NuxtImg
             :src="item.image"
             :alt="item.title"
-            width="800"
-            height="400"
+            width="600"
+            height="300"
             object-fit="cover"
             class="article-image"
           />

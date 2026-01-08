@@ -1,37 +1,43 @@
 <script setup lang="ts">
+import { useContentStore } from '~/composables/useContentStore'
+
 const route = useRoute()
 const config = useRuntimeConfig().public
+const contentStore = useContentStore()
 
-// 获取当前案例
-const { data: doc } = await useAsyncData(`case-${route.params.slug}`, () =>
-  queryContent('cases')
-    .where({ slug: route.params.slug })
-    .findOne()
+const slug = route.params.slug as string
+
+// ===== 获取当前案例 =====
+const { data: doc } = await useAsyncData(`case-${slug}`, async () => {
+  const article = await contentStore.fetchArticle('cases', slug)
+  if (!article) throw createError({ statusCode: 404, statusMessage: '案例未找到' })
+  return article
+})
+
+// ===== 上下篇案例 =====
+const { data: surround } = await useAsyncData(`case-surround-${slug}`, () =>
+  contentStore.fetchPrevNext('cases', doc.value._path!)
+)
+const prev = surround.value.prev
+const next = surround.value.next
+
+// ===== 相关案例 =====
+const { data: related } = await useAsyncData(`case-related-${slug}`, () =>
+  contentStore.fetchRelated({
+    currentPath: doc.value._path!,
+    section: 'cases',
+    limit: 4
+  })
 )
 
-if (!doc.value) throw createError({ statusCode: 404, statusMessage: '案例未找到' })
-
-// 上下篇案例
-const surroundPromise = queryContent('cases').sort({ date: -1 }).findSurround(doc.value._path!)
-const relatedPromise = queryContent('cases')
-  .where({
-    slug: { $ne: doc.value.slug },
-
-  })
-  .limit(4)
-  .find()
-
-const [surround, related] = await Promise.all([surroundPromise, relatedPromise])
-const [prev, next] = surround
-
-// 面包屑
+// ===== 面包屑 =====
 const breadcrumbs = [
   { label: '首页', to: '/' },
   { label: '客户案例', to: '/cases' },
   { label: doc.value.title }
 ]
 
-// JSON-LD
+// ===== JSON-LD =====
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -43,6 +49,7 @@ const jsonLd = {
   mainEntityOfPage: `${config.siteUrl}${doc.value._path}`
 }
 </script>
+
 
 <template>
   <SeoHead

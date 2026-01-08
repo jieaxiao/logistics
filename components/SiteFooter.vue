@@ -29,7 +29,7 @@ const navLinks: NavItem[] = [
       <div class="footer-col">
         <h4>{{ config.companyName }}</h4>
         <p>专注跨境物流、清关、海外仓配，一站式解决方案。</p>
-        <p><strong>电话：</strong>{{ config.phone }}</p>
+        <p><strong>电话：</strong>+86 {{ config.phone }}</p>
         <p><strong>邮箱：</strong>{{ config.email }}</p>
         <p><strong>地址：</strong>{{ config.address }}</p>
         <div class="wechat">

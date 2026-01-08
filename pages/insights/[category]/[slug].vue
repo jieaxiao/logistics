@@ -1,76 +1,67 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { InsightDir } from '~/composables/useContentStore'
+
 const route = useRoute()
 const config = useRuntimeConfig().public
+const contentStore = useContentStore()
 
-type InsightCategory = 'company' | 'industry' | 'knowledge'
-const categoryMap: Record<InsightCategory, string> = {
+// 分类映射
+const categoryMap: Record<InsightDir, string> = {
   company: '公司动态',
   industry: '行业新闻',
   knowledge: '知识百科'
 }
 
-// 当前分类从路径参数
-const currentCategory = computed<InsightCategory>(() => {
-  const c = route.params.category as InsightCategory
-  return Object.keys(categoryMap).includes(c) ? c : 'knowledge'
-})
+// ================= 获取文章 =================
+// 先尝试用路由 category，如果无效先传 undefined
+const categoryFromRoute = route.params.category as InsightDir
+const subDir: InsightDir | undefined = ['company','industry','knowledge'].includes(categoryFromRoute)
+  ? categoryFromRoute
+  : undefined
 
-// 获取当前文章
-const { data: article } = await useAsyncData(
-  `insight-${route.params.slug}`,
-  () =>
-    queryContent('insight')
-      .where({ slug: route.params.slug })
-      .findOne()
-)
-
-if (!article.value) {
+// ================= 获取文章 =================
+const article = await contentStore.fetchArticle('insights', route.params.slug as string)
+if (!article) {
   throw createError({ statusCode: 404, statusMessage: '文章未找到' })
 }
 
-// 获取上下篇文章
-const [prev, next] = await queryContent('insight')
-  .where({ _dir: currentCategory.value })
-  .sort({ date: -1 })
-  .findSurround(article.value._path!)
+// ================= 当前分类 =================
+const currentCategory = computed(() => (article._dir as InsightDir) || 'knowledge')
 
-const related = await queryContent('insight')
-  .where({
-    $and: [
-      { _path: { $ne: article.value._path } },
-      {
-        $or: [
-          { category: article.value.category },
-          { tags: { $contains: article.value.tags?.[0] } }
-        ]
-      }
-    ]
-  })
-  .limit(4)
-  .find()
+// ================= 上下篇 =================
+const prevNext = await contentStore.fetchPrevNext('insights', article._path!, article._dir)
+const prev = prevNext.prev
+const next = prevNext.next
 
-// 面包屑
+// ================= 相关推荐 =================
+const related = await contentStore.fetchRelated({
+  currentPath: article._path!,
+  section: 'insights',
+  subDir: article._dir,
+  limit: 4
+})
+
+// ================= 面包屑 =================
 const breadcrumbs = computed(() => [
   { label: '首页', to: '/' },
   { label: '资讯中心', to: '/insights' },
   { label: categoryMap[currentCategory.value], to: `/insights/${currentCategory.value}` },
-  ...(article.value ? [{ label: article.value.title }] : [])
+  { label: article.title }
 ])
 
-// JSON-LD
+// ================= SEO JSON-LD =================
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
-  headline: article.value.title,
-  description: article.value.description,
-  image: `${config.siteUrl}${article.value.image}`,
-  datePublished: article.value.date,
+  headline: article.title,
+  description: article.description,
+  image: `${config.siteUrl}${article.image}`,
+  datePublished: article.date,
   author: { '@type': 'Organization', name: config.companyName },
-  mainEntityOfPage: `${config.siteUrl}/insights/${currentCategory.value}/${article.value.slug}`
+  mainEntityOfPage: `${config.siteUrl}/insights/${currentCategory.value}/${article.slug}`
 }
 </script>
-
 
 <template>
   <SeoHead
@@ -87,7 +78,7 @@ const jsonLd = {
 
     <article class="grid-article">
       <div>
-        <p class="meta">{{ article.category }} · {{ article.date }}</p>
+        <p class="meta">{{ article._dir }} · {{ article.date }}</p>
         <h1>{{ article.title }}</h1>
         <p>{{ article.description }}</p>
 
@@ -146,6 +137,7 @@ const jsonLd = {
 .sidebar {
   position: relative;
 }
+
 @media (max-width: 1024px) {
   .grid-article {
     grid-template-columns: 1fr;

@@ -1,17 +1,29 @@
 <script setup lang="ts">
 import { services } from '~/composables/services'
+import { useContentStore } from '~/composables/useContentStore'
 
 const config = useRuntimeConfig().public
+const contentStore = useContentStore()
 
 /** 首页知识文章（只取 knowledge） */
 const { data: latestNews } = await useAsyncData(
   'home-knowledge',
   () =>
-    queryContent('insights/knowledge')
-      .sort({ date: -1 })
-      .limit(4)
-      .only(['title', 'description', 'date', 'slug', 'image', '_path', 'category'])
-      .find()
+    contentStore.fetchList({
+      section: 'insights',
+      subDir: 'knowledge',
+      onlyFields: ['title', 'description', 'date', 'slug', 'image', '_path', 'category']
+    }).then(list => list.slice(0, 4)) // 只取前 4 条
+)
+
+/** 首页案例（只取最新 4 条） */
+const { data: latestCases } = await useAsyncData(
+  'home-cases',
+  () =>
+    contentStore.fetchList({
+      section: 'cases',
+      onlyFields: ['title', 'description', 'date', 'slug', 'image', '_path', 'category']
+    }).then(list => list.slice(0, 4))
 )
 
 /** Organization Schema */
@@ -97,16 +109,36 @@ const heroSchema = {
   <section class="container card">
     <header class="section-head">
       <h2>跨境物流知识</h2>
-      <NuxtLink to="/insights?category=knowledge">全部文章 →</NuxtLink>
+      <NuxtLink to="/insights">全部文章 →</NuxtLink>
     </header>
 
     <div class="grid grid-2">
       <ArticleCard
         v-for="item in latestNews"
-        :key="item._path"
+        :key="item.title"
         :title="item.title"
         :description="item.description"
-        :to="`/insights/${item.slug}`"
+        :to="`/insights/knowledge/${item.slug}`"
+        :date="item.date"
+        :category="item.category"
+        :image="item.image"
+      />
+    </div>
+  </section>
+
+  <section class="container card">
+    <header class="section-head">
+      <h2>客户案例</h2>
+      <NuxtLink to="/cases">全部案例 →</NuxtLink>
+    </header>
+
+    <div class="grid grid-2">
+      <ArticleCard
+        v-for="item in latestCases"
+        :key="item.title"
+        :title="item.title"
+        :description="item.description"
+        :to="`/cases/${item.slug}`"
         :date="item.date"
         :category="item.category"
         :image="item.image"
@@ -201,6 +233,10 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
+}
+
+.card{
+  margin-top: 30px;
 }
 
 @media (max-width: 1200px) {

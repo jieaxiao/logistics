@@ -1,25 +1,34 @@
 <script setup lang="ts">
-const route = useRoute()
+import { computed } from 'vue'
+import { useContentStore } from '~/composables/useContentStore'
 
+const route = useRoute()
+const contentStore = useContentStore()
 const pageSize = 4
 
-const { data: cases } = await useAsyncData('cases-list', () =>
-  queryContent('cases')
-    .sort({ date: -1 })
-    .find()
-)
+// ===== 使用公共缓存获取客户案例列表 =====
+const { data: cases, pending } = await useAsyncData('cases-list', async () => {
+  const list = await contentStore.fetchList({
+    section: 'cases',
+    onlyFields: ['title', 'description', 'date', 'image', 'slug', 'category']
+  })
+  return list
+})
 
+// 当前页
 const currentPage = computed(() => {
   const p = Number(route.query.page)
   return p > 0 ? p : 1
 })
 
+// 分页后的列表
 const pagedCases = computed(() => {
   if (!cases.value) return []
   const start = (currentPage.value - 1) * pageSize
   return cases.value.slice(start, start + pageSize)
 })
 
+// 面包屑
 const breadcrumbs = [
   { label: '首页', to: '/' },
   { label: '客户案例' }

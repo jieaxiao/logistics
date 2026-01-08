@@ -83,7 +83,7 @@ export default defineNuxtConfig({
     public: {
       siteUrl: process.env.SITE_URL || 'https://www.example-logistics.com',
       companyName: 'GlobalCross Logistics',
-      phone: '+86-10-88888888',
+      phone: '-10-88888888',
       email: 'contact@globalcross.com',
       address: 'Shenzhen, China',
       wechat: 'GlobalCrossWX',

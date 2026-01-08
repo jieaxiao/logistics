@@ -1,47 +1,59 @@
 <script setup lang="ts">
-// 定义分类元数据
-const categories = [
+import type { InsightDir } from '~/composables/useContentStore'
+
+// ===== 分类元数据 =====
+const categories: { key: InsightDir; label: string }[] = [
   { key: 'company', label: '公司动态' },
   { key: 'industry', label: '行业新闻' },
   { key: 'knowledge', label: '知识百科' }
 ]
 
-// 面包屑配置
+// ===== 面包屑 =====
 const breadcrumbs = [
   { label: '首页', to: '/' },
   { label: '资讯中心' }
 ]
 
 const runtimeConfig = useRuntimeConfig()
+const contentStore = useContentStore()
 
-// 一次性获取所有分类的前6条数据
-const { data: sectionData, pending } = await useAsyncData('insights-home', async () => {
-  const results = await Promise.all(
-    categories.map(cat => 
-      queryContent('insight')
-        .where({ _dir: cat.key })
-        .sort({ date: -1 })
-        .limit(6)
-        .only(['title', 'description', 'date', 'slug', 'image'])
-        .find()
+// ===== 使用公共缓存获取数据 =====
+const { data: sectionData, pending } = await useAsyncData(
+  'insights-home',
+  async () => {
+    const results = await Promise.all(
+      categories.map(cat =>
+        contentStore.fetchList({
+          section: 'insights',
+          subDir: cat.key,
+          onlyFields: [
+            'title',
+            'description',
+            'date',
+            'image',
+            'slug'
+          ]
+        })
+      )
     )
-  )
-  
-  // 返回结构化数据：{ company: [...], industry: [...], ... }
-  return Object.fromEntries(categories.map((cat, i) => [cat.key, results[i]]))
-})
 
-// SEO设置
+    return Object.fromEntries(
+      categories.map((cat, i) => [cat.key, results[i].slice(0, 6)])
+    )
+  }
+)
+
+// ===== SEO =====
 useSeoMeta({
   title: '资讯中心 | 飞渡速达',
   description: '飞渡速达跨境物流资讯中心，涵盖公司动态、行业新闻与实操知识'
 })
 
-// 规范链接指向资讯主页
 useHead({
   link: [{ rel: 'canonical', href: `${runtimeConfig.public.siteUrl}/insights` }]
 })
 </script>
+
 
 <template>
   <div class="insights-home container">
@@ -84,7 +96,7 @@ useHead({
               <div class="article-footer">
                 <span class="category-tag">{{ cat.label }}</span>
                 <span class="date">{{ article.date?.split('T')[0] }}</span>
-                <NuxtLink :to="`/insights/${article.slug}`" class="detail-link">详情 —</NuxtLink>
+                <NuxtLink :to="`/insights/${cat.key}/${article.slug}`" class="detail-link">详情 —</NuxtLink>
               </div>
             </div>
           </div>
